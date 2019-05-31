@@ -57,7 +57,7 @@ class ScarletSegmentation(Dataset):
     def transform_tr(self, sample):
         composed_transforms = transforms.Compose([
             # tr.RandomHorizontalFlip(),
-            tr.RandomScaleCrop(base_size=self.args.base_size, crop_size=self.args.crop_size),
+            tr.RandomScaleCrop(base_size=self.args.base_size, crop_size=self.args.crop_size, fill=0xffffff),
             tr.RandomGaussianBlur(),
             tr.Normalize(mean=(0.485, 0.456, 0.406), std=(0.229, 0.224, 0.225)),
             tr.ToTensor()])
@@ -79,7 +79,10 @@ if __name__ == "__main__":
     from torch.utils.data import DataLoader
     from torchvision import transforms
     import matplotlib.pyplot as plt
+    import matplotlib
     from types import SimpleNamespace
+
+    matplotlib.use('TkAgg')
 
     args = SimpleNamespace(
         base_size = 513,
