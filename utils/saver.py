@@ -3,6 +3,7 @@ import shutil
 import torch
 from collections import OrderedDict
 import glob
+import json
 
 class Saver(object):
 
@@ -42,19 +43,6 @@ class Saver(object):
                 shutil.copyfile(filename, os.path.join(self.directory, 'model_best.pth.tar'))
 
     def save_experiment_config(self):
-        logfile = os.path.join(self.experiment_dir, 'parameters.txt')
-        log_file = open(logfile, 'w')
-        p = OrderedDict()
-        p['datset'] = self.args.dataset
-        p['backbone'] = self.args.backbone
-        p['out_stride'] = self.args.out_stride
-        p['lr'] = self.args.lr
-        p['lr_scheduler'] = self.args.lr_scheduler
-        p['loss_type'] = self.args.loss_type
-        p['epoch'] = self.args.epochs
-        p['base_size'] = self.args.base_size
-        p['crop_size'] = self.args.crop_size
-
-        for key, val in p.items():
-            log_file.write(key + ':' + str(val) + '\n')
-        log_file.close()
+        logfile = os.path.join(self.experiment_dir, 'parameters.json')
+        with open(logfile, 'w') as f:
+            json.dump(self.args.__dict__, f, indent=4)
