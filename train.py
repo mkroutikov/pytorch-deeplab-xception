@@ -52,11 +52,14 @@ class Trainer(object):
             else:
                 weight = calculate_weigths_labels(args.dataset, self.train_loader, self.nclass)
             weight = torch.from_numpy(weight.astype(np.float32))
+        elif args.class_weights:
+            weight = np.array(float(x) for x in args.class_weights.split(','))
+            weight = torch.from_numpy(weight.astype(np.float32))
         else:
             weight = None
         self.criterion = SegmentationLosses(weight=weight, cuda=args.cuda).build_loss(mode=args.loss_type)
         self.model, self.optimizer = model, optimizer
-        
+
         # Define Evaluator
         self.evaluator = Evaluator(self.nclass)
         # Define lr scheduler
@@ -213,6 +216,8 @@ def main():
                                 testing (default: auto)')
     parser.add_argument('--use-balanced-weights', action='store_true', default=False,
                         help='whether to use balanced weights (default: False)')
+    parser.add_argument('--class-weights',
+                        help='explicit class weights (default: None)')
     # optimizer params
     parser.add_argument('--lr', type=float, default=None, metavar='LR',
                         help='learning rate (default: auto)')
