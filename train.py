@@ -53,7 +53,7 @@ class Trainer(object):
                 weight = calculate_weigths_labels(args.dataset, self.train_loader, self.nclass)
             weight = torch.from_numpy(weight.astype(np.float32))
         elif args.class_weights:
-            weight = np.array(float(x) for x in args.class_weights.split(','))
+            weight = np.array([float(x) for x in args.class_weights.split(',')])
             weight = torch.from_numpy(weight.astype(np.float32))
         else:
             weight = None
