@@ -2,14 +2,14 @@ import torch
 import torch.nn as nn
 
 class SegmentationLosses(object):
-    def __init__(self, weight=None, size_average=True, batch_average=True, ignore_index=255, cuda=False):
+    def __init__(self, weight=None, reduction='mean', batch_average=True, ignore_index=255, cuda=False):
         self.ignore_index = ignore_index
         self.weight = weight
-        self.size_average = size_average
+        self.reduction = reduction
         self.batch_average = batch_average
         self.cuda = cuda
         self._criterion = nn.CrossEntropyLoss(weight=self.weight, ignore_index=self.ignore_index,
-                                        size_average=self.size_average)
+                                        reduction=self.reduction)
         if self.cuda:
             self._criterion = self._criterion.cuda()
 
