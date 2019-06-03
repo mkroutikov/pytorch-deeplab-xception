@@ -8,3 +8,4 @@ torch
 torchvision
 tqdm
 ilabs.curate  # for scarlet dataset
+opencv-python

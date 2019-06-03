@@ -10,11 +10,18 @@ from torchvision import transforms
 from dataloaders import custom_transforms as tr
 from PIL import Image, ImageFile
 from ilabs.curate import ic
+from utils.halo import halo
+import logging
+import json
+import cv2 as cv
+
 ImageFile.LOAD_TRUNCATED_IMAGES = True
 
 
 class ScarletSegmentation(Dataset):
-    NUM_CLASSES = 2
+    NUM_CLASSES = 3
+
+    MASKS = 'scarlet200-masks.pickle'
 
     def __init__(self,
         args,
@@ -25,7 +32,13 @@ class ScarletSegmentation(Dataset):
         self._dataset = ic.get_dataset('ilabs.vision', 'scarlet200')
         files = list(self._dataset[split])
         images = sorted(f for f in files if f.endswith('.png') and not f.endswith('-mask.png'))
-        masks  = sorted(f for f in files if f.endswith('-mask.png'))
+
+        if not os.path.exists(self.MASKS):
+            logging.info('Generating masks')
+            masks = [generate_mask(fname) for fname in images]
+            torch.save(masks, self.MASKS)
+        else:
+            masks = torch.load(self.MASKS)
         assert len(images) == len(masks)
         self._images = images
         self._masks = masks
@@ -37,10 +50,7 @@ class ScarletSegmentation(Dataset):
 
     def __getitem__(self, index):
         image = Image.open(self._images[index]).convert('RGB')
-        mask  = Image.open(self._masks[index]).convert('L')
-        pix = np.array(mask.getdata()).reshape(mask.size[1], mask.size[0])
-        pix = (pix < 128).astype(np.int32)
-        mask = Image.fromarray(pix)
+        mask  = Image.fromarray(self._masks[index]).convert('L')
 
         sample = {
             'image': image,
@@ -73,6 +83,28 @@ class ScarletSegmentation(Dataset):
 
         return composed_transforms(sample)
 
+
+def generate_mask(fname, kernel_size=(10, 10)):
+    assert fname.endswith('.png')
+
+    with open(fname[:-4] + '.json') as f:
+        meta = json.load(f)
+
+    w, h = meta['size']
+    zones = meta['zones']
+
+    kernel = np.ones(kernel_size, np.uint8)  # FIXME: should we consider non-rectangular brush? -MK
+
+    mask = halo(w, h, zones, kernel)
+    mask *= 2  # halo index is now 2
+
+    for z in zones:
+        x0, y0, x1, y1 = z['bbox']
+        cv.rectangle(mask, (x0, y0), (x1, y1), color=1, thickness=-1)
+
+    return mask
+
+
 if __name__ == "__main__":
     from dataloaders import custom_transforms as tr
     from dataloaders.utils import decode_segmap
@@ -82,7 +114,7 @@ if __name__ == "__main__":
     import matplotlib
     from types import SimpleNamespace
 
-    matplotlib.use('TkAgg')
+    logging.basicConfig(level=logging.INFO)
 
     args = SimpleNamespace(
         base_size = 513,
@@ -98,7 +130,7 @@ if __name__ == "__main__":
             img = sample['image'].numpy()
             gt = sample['label'].numpy()
             tmp = np.array(gt[jj]).astype(np.uint8)
-            segmap = decode_segmap(tmp, dataset='coco')
+            segmap = decode_segmap(tmp, dataset='scarlet200')
             img_tmp = np.transpose(img[jj], axes=[1, 2, 0])
             img_tmp *= (0.229, 0.224, 0.225)
             img_tmp += (0.485, 0.456, 0.406)
