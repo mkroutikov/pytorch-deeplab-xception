@@ -13,9 +13,8 @@ class Saver(object):
         self.runs = sorted(glob.glob(os.path.join(self.directory, 'experiment_*')))
         run_id = int(self.runs[-1].split('_')[-1]) + 1 if self.runs else 0
 
-        self.experiment_dir = os.path.join(self.directory, 'experiment_{}'.format(str(run_id)))
-        if not os.path.exists(self.experiment_dir):
-            os.makedirs(self.experiment_dir)
+        self.experiment_dir = os.path.join(self.directory, 'experiment_%04d'% run_id)
+        os.makedirs(self.experiment_dir, exist_ok=True)
 
     def save_checkpoint(self, state, is_best, filename='checkpoint.pth.tar'):
         """Saves checkpoint to disk"""
