@@ -2,7 +2,7 @@ import numpy as np
 import torch
 from torch.utils.data import Dataset
 from mypath import Path
-from tqdm import trange
+from tqdm import trange, tqdm
 import os
 from pycocotools.coco import COCO
 from pycocotools import mask
@@ -21,7 +21,7 @@ ImageFile.LOAD_TRUNCATED_IMAGES = True
 class ScarletSegmentation(Dataset):
     NUM_CLASSES = 3
 
-    MASKS = 'scarlet200-masks.pickle'
+    MASKS = 'scarlet200-masks-%s.pickle'
 
     def __init__(self,
         args,
@@ -33,12 +33,13 @@ class ScarletSegmentation(Dataset):
         files = list(self._dataset[split])
         images = sorted(f for f in files if f.endswith('.png') and not f.endswith('-mask.png'))
 
-        if not os.path.exists(self.MASKS):
-            logging.info('Generating masks')
-            masks = [generate_mask(fname) for fname in images]
-            torch.save(masks, self.MASKS)
+        masks_filename = self.MASKS % split
+        if not os.path.exists(masks_filename):
+            print('Generating masks for split', split)
+            masks = [generate_mask(fname) for fname in tqdm(images)]
+            torch.save(masks, masks_filename)
         else:
-            masks = torch.load(self.MASKS)
+            masks = torch.load(masks_filename)
         assert len(images) == len(masks)
         self._images = images
         self._masks = masks
