@@ -22,9 +22,8 @@ class Trainer(object):
         self.saver = Saver(args)
         self.saver.save_experiment_config()
         # Define Tensorboard Summary
-        self.summary = TensorboardSummary(self.saver.experiment_dir)
-        self.writer = self.summary.create_summary()
-        
+        self.writer = TensorboardSummary(logdir=self.saver.experiment_dir)
+
         # Define Dataloader
         kwargs = {'num_workers': args.workers, 'pin_memory': True}
         self.train_loader, self.val_loader, self.test_loader, self.nclass = make_data_loader(args, **kwargs)
@@ -115,7 +114,7 @@ class Trainer(object):
             # Show 10 inference results each epoch
             if i % (num_img_tr // 10) == 0:
                 global_step = i + num_img_tr * epoch
-                self.summary.visualize_image(self.writer, self.args.dataset, image[0], target[0], output[0], global_step)
+                self.writer.visualize_image(self.args.dataset, image[0], target[0], output[0], global_step)
 
         self.writer.add_scalar('train/total_loss_epoch', train_loss, epoch)
         print('[Epoch: %d, numImages: %5d]' % (epoch, i * self.args.batch_size + image.data.shape[0]))

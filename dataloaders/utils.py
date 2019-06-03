@@ -4,8 +4,7 @@ import torch
 
 def decode_seg_map_sequence(label_mask, dataset='pascal'):
     rgb_mask = decode_segmap(label_mask, dataset)
-    rgb_mask = torch.from_numpy(np.array(rgb_mask).transpose([2, 0, 1])).float()
-    return rgb_masks
+    return torch.from_numpy(np.array(rgb_mask).transpose([2, 0, 1])).float()
 
 
 def decode_segmap(label_mask, dataset, plot=False):
