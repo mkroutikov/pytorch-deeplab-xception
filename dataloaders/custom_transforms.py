@@ -32,7 +32,7 @@ class Normalize(object):
 
     def __call__(self, sample):
         return {
-            'image': normalize_rgb_image(sample['image']),
+            'image': normalize_rgb_image(sample['image'], mean=self.mean, std=self.std),
             'label': np.array(sample['label']).astype(np.float32)
         }
 

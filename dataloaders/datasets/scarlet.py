@@ -23,7 +23,7 @@ ImageFile.LOAD_TRUNCATED_IMAGES = True
 class ScarletSegmentation(Dataset):
     NUM_CLASSES = 5
 
-    MASKS = 'scarlet200-border-masks-%s.pickle'
+    MASKS = 'scarlet200-volume-masks-%s.pickle'
 
     def __init__(self,
         args,
@@ -38,7 +38,7 @@ class ScarletSegmentation(Dataset):
         masks_filename = self.MASKS % split
         if not os.path.exists(masks_filename):
             print('Generating BORDER masks for split', split)
-            masks = [generate_border_mask(fname) for fname in tqdm(images)]
+            masks = [generate_volume_mask(fname) for fname in tqdm(images)]
             torch.save(masks, masks_filename)
         else:
             masks = torch.load(masks_filename)
@@ -120,6 +120,24 @@ def generate_border_mask(fname, thickness=5):
 
     return mask
 
+def generate_volume_mask(fname):
+    assert fname.endswith('.png')
+
+    with open(fname[:-4] + '.json') as f:
+        meta = json.load(f)
+
+    w, h = meta['size']
+    zones = meta['zones']
+
+    mask = np.zeros((h,w), np.uint8)
+    for z in zones:
+        x0, y0, x1, y1 = z['bbox']
+        cv.rectangle(mask, (x0, y0), (x0 + (x1-x0)//2, y1), color=1, thickness=-1)
+        cv.rectangle(mask, (x0 + (x1-x0)//2, y0), (x1, y1), color=2, thickness=-1)
+        cv.fillConvexPoly(mask, np.array([(x0, y0), ((x0+x1)//2, (y0+y1)//2), (x1, y0)], dtype=np.int32), color=3)
+        cv.fillConvexPoly(mask, np.array([(x0, y1), ((x0+x1)//2, (y0+y1)//2), (x1, y1)], dtype=np.int32), color=4)
+
+    return mask
 
 def image_to_crops(image, cropsize=513, overlap=0.1):
     '''
@@ -234,6 +252,7 @@ if __name__ == "__main__":
             tmp = np.array(gt[jj]).astype(np.uint8)
             segmap = decode_segmap(tmp, dataset='scarlet200')
             img_tmp = np.transpose(img[jj], axes=[1, 2, 0])
+            print(np.min(img_tmp), np.max(img_tmp), np.mean(img_tmp), np.std(img_tmp))
             img_tmp *= (0.229, 0.224, 0.225)
             img_tmp += (0.485, 0.456, 0.406)
             img_tmp *= 255.0
