@@ -28,6 +28,7 @@ class Decoder(nn.Module):
                                        nn.ReLU(),
                                        nn.Dropout(0.1),
                                        nn.Conv2d(256, num_classes, kernel_size=1, stride=1))
+        self._positional = None  # init when ve know the image size
         self._init_weight()
 
 
@@ -42,7 +43,9 @@ class Decoder(nn.Module):
 
         if self._positional is None:
             self._positional = create_positional(low_level_feat.size()[2:])
-        x = torch.cat((x, low_level_feat, self._positional), dim=1)
+
+        B = x.shape[0]
+        x = torch.cat((x, low_level_feat, self._positional.repeat(B, 1, 1, 1), dim=1)
         x = self.last_conv(x)
 
         return x
