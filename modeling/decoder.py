@@ -45,7 +45,8 @@ class Decoder(nn.Module):
             self._positional = create_positional(low_level_feat.size()[2:])
 
         B = x.shape[0]
-        x = torch.cat((x, low_level_feat, self._positional.repeat(B, 1, 1, 1), dim=1)
+        pos = self._positional.repeat(B, 1, 1, 1)
+        x = torch.cat((x, low_level_feat, pos), dim=1)
         x = self.last_conv(x)
 
         return x
