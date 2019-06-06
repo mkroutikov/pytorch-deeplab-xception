@@ -72,6 +72,8 @@ def create_positional(size):
     for y in range(h):
         pos[0,0,:,y] = (y - h//2) / h
 
+    if torch.cuda.is_available():
+        pos = pos.to(torch.device('cuda'))
     return pos
 
 def build_decoder(num_classes, backbone, BatchNorm):
