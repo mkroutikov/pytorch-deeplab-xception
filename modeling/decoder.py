@@ -19,7 +19,7 @@ class Decoder(nn.Module):
         self.conv1 = nn.Conv2d(low_level_inplanes, 48, 1, bias=False)
         self.bn1 = BatchNorm(48)
         self.relu = nn.ReLU()
-        self.last_conv = nn.Sequential(nn.Conv2d(304, 256, kernel_size=3, stride=1, padding=1, bias=False),
+        self.last_conv = nn.Sequential(nn.Conv2d(304+2, 256, kernel_size=3, stride=1, padding=1, bias=False),
                                        BatchNorm(256),
                                        nn.ReLU(),
                                        nn.Dropout(0.5),
@@ -32,12 +32,17 @@ class Decoder(nn.Module):
 
 
     def forward(self, x, low_level_feat):
+        # x: (B, 256, 33, 33)
+        # low_level_feat: (B, 256, 129, 129)
         low_level_feat = self.conv1(low_level_feat)
         low_level_feat = self.bn1(low_level_feat)
         low_level_feat = self.relu(low_level_feat)
 
         x = F.interpolate(x, size=low_level_feat.size()[2:], mode='bilinear', align_corners=True)
-        x = torch.cat((x, low_level_feat), dim=1)
+
+        if self._positional is None:
+            self._positional = create_positional(low_level_feat.size()[2:])
+        x = torch.cat((x, low_level_feat, self._positional), dim=1)
         x = self.last_conv(x)
 
         return x
@@ -52,6 +57,18 @@ class Decoder(nn.Module):
             elif isinstance(m, nn.BatchNorm2d):
                 m.weight.data.fill_(1)
                 m.bias.data.zero_()
+
+def create_positional(size):
+    w, h = size
+
+    pos = torch.zeros((1, 2, w, h), dtype=torch.float32)
+
+    for x in range(w):
+        pos[0,0,x,:] = (x - w//2) / w
+    for y in range(h):
+        pos[0,0,:,y] = (y - h//2) / h
+
+    return pos
 
 def build_decoder(num_classes, backbone, BatchNorm):
     return Decoder(num_classes, backbone, BatchNorm)

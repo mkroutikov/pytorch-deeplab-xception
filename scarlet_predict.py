@@ -5,14 +5,13 @@ from modeling.deeplab import DeepLab
 import numpy as np
 from PIL import Image
 import torch
+from torchvision.utils import make_grid
 
 
 def predict(model, image):
     width, height = image.size
 
-    crops = image_to_crops(image)
-    scaled_width = crops['width']
-    scaled_height = crops['height']
+    crops, offsets = image_to_crops(image)
 
     # make a minibatch of crops
     minibatch = [
@@ -23,14 +22,14 @@ def predict(model, image):
                 std=(0.229, 0.224, 0.225)
             )
         )
-        for image in crops['crops']
+        for image in crops
     ]
     minibatch = torch.stack(minibatch)
 
     with torch.no_grad():
         logits = model(minibatch).detach().cpu().numpy()
 
-    big_logits = glue_logits(logits, crops['offsets'])
+    big_logits = glue_logits(logits, offsets)
     mask = np.argmax(big_logits, axis=2)
     confidence = np.min(np.abs(big_logits), axis=2)
 
@@ -39,6 +38,8 @@ def predict(model, image):
         [0,   0,   0],  # black
         [255, 0,   0],  # red
         [0,   255, 0],  # green
+        [0,   0, 255],  # green
+        [0,   255, 255],  # green
     ], dtype=np.int32)
     color = np.expand_dims(color, axis=1)
     color = np.expand_dims(color, axis=1)
@@ -47,19 +48,21 @@ def predict(model, image):
     r = (mask == 0) * color[0]
     g = (mask == 1) * color[1]
     b = (mask == 2) * color[2]
-    mask = (r + g + b)
-    mask = mask.astype(np.uint8)
-    mask = Image.fromarray( mask )
-    mask = mask.resize((width, height), Image.NEAREST)
+    c = (mask == 3) * color[3]
+    d = (mask == 4) * color[4]
+    mask = (r + g + b + c + d).astype(np.uint8).transpose(1, 0, 2)
 
-    return mask
+    image = Image.fromarray( mask )
+    mask = np.array(image, dtype=np.float32)
+
+    return image
 
 
 def main(checkpoint_filename, input_image, output_image):
     device = torch.device('cuda') if torch.cuda.is_available() else torch.device('cpu')
 
     # Define network
-    model = DeepLab(num_classes=3,
+    model = DeepLab(num_classes=5,
                     backbone='resnet',
                     output_stride=16,
                     sync_bn=False,

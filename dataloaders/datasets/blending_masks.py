@@ -1,35 +1,94 @@
 import numpy as np
 
 def blending_masks(offsets, size=513):
+    numx = offsets.shape[0]
+    numy = offsets.shape[1]
+    assert offsets.shape[2] == 2, offsets.shape # expect X and Y there
 
-    # expect either horizontally-stacked crops, or vertically-striped crops
-    if all(x[1] == 0 for x in offsets):
-        # horizontally stacked crops: convert to vertical
-        offsets = [(y, x) for x,y in offsets]
+    # lets check that tiles do not overlap too much
+    # or the algorithm for blending would be wrong
+    for x in range(numx):
+        for y in range(numy-1):
+            assert size//2 < offsets[x,y+1,1]-offsets[x,y,1] <= size, (x, y, offsets[x,y+1,1], offsets[x,y,1], size, offsets)
+    for y in range(numy):
+        for x in range(numx-1):
+            assert size//2 < offsets[x+1,y,0]-offsets[x,y,0] <= size, (x, y, offsets[x+1,y,0], offsets[x,y,0], size, offsets)
 
-        return np.transpose(blending_masks(offsets, size=size), (0, 2, 1))
+    masks = np.ones( (numx, numy, size, size), dtype=np.float32)
 
-    if not all(x[0] == 0 for x in offsets):
-        raise ValueError('I can only generate blending masks for vertically or horizontally stacked crops')
+    for y in range(numy):
+        for x in range(numx):
+            off = offsets[x,y,0]
+            prev_stripe = offsets[x-1,y,0]+size-off if x > 0 else 0
+            next_stripe = off+size-offsets[x+1,y,0] if x < numx-1 else 0
 
-    offsets = [x[1] for x in offsets]  # leave only x-offsets
-    offsets.append(offsets[-1]+size)
+            for i in range(prev_stripe):
+                weight = (i+1) / (prev_stripe+1)
+                masks[x,y,i,:] *= weight
 
-    masks = np.ones( (len(offsets) - 1, size, size), dtype=np.float32)
+            for i in range(next_stripe):
+                weight = 1. - (i+1) / (next_stripe+1)
+                masks[x,y,i+size-next_stripe,:] *= weight
 
-    prev = 0
-    for k,(po,no) in enumerate(zip(offsets,offsets[1:])):
-        left_stripe = prev-po
-        right_stripe = po+size-no
+    for x in range(numx):
+        for y in range(numy):
+            off = offsets[x,y,1]
+            prev_stripe = offsets[x,y-1,1]+size-off if y > 0 else 0
+            next_stripe = off+size-offsets[x,y+1,1] if y < numy-1 else 0
 
-        for i in range(left_stripe):
-            weight = (i+1) / (left_stripe+1)
-            masks[k,i,:] = weight
+            for i in range(prev_stripe):
+                weight = (i+1) / (prev_stripe+1)
+                masks[x,y,:,i] *= weight
 
-        for i in range(right_stripe):
-            weight = 1. - (i+1) / (right_stripe+1)
-            masks[k,i+size-right_stripe,:] = weight
-
-        prev = po + size
+            for i in range(next_stripe):
+                weight = 1. - (i+1) / (next_stripe+1)
+                masks[x,y,:,i+size-next_stripe] *= weight
 
     return masks
+
+
+if __name__ == '__main__':
+    from matplotlib import pyplot as plt
+
+    offsets = np.array([
+        [(0, 0), (0, 75)],
+        [(60, 0), (60, 75)],
+        [(120, 0), (120,75)]
+    ], dtype=np.int32)
+
+    size = 100
+
+    masks = blending_masks(offsets, size=size)
+    plt.figure()
+    plt.title('masks')
+
+    plt.subplot(231)
+    plt.imshow(masks[0,0].transpose(1,0))
+    plt.subplot(232)
+    plt.imshow(masks[1,0].transpose(1,0))
+    plt.subplot(233)
+    plt.imshow(masks[2,0].transpose(1,0))
+
+    plt.subplot(234)
+    plt.imshow(masks[0,1].transpose(1,0))
+    plt.subplot(235)
+    plt.imshow(masks[1,1].transpose(1,0))
+    plt.subplot(236)
+    plt.imshow(masks[2,1].transpose(1,0))
+
+    plt.figure()
+
+    width = np.max(offsets[:,:,0]) + size
+    height = np.max(offsets[:,:,1]) + size
+    pic = np.zeros((width, height), dtype=np.float32)
+    for x in range(offsets.shape[0]):
+        for y in range(offsets.shape[1]):
+            offx, offy = offsets[x,y]
+            pic[offx:offx+size,offy:offy+size] += masks[x,y]
+
+    print(np.min(pic), np.max(pic))
+
+    plt.title('cumulative')
+    plt.imshow(pic.transpose(1,0))
+
+    plt.show(block=True)

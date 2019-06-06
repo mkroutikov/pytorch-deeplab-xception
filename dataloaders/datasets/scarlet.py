@@ -170,7 +170,7 @@ def image_to_crops(image, cropsize=513, overlap=0.1):
     }
 
 
-def image_to_crops(image, cropsize=513, overlap=0.1):
+def image_to_crops(image, cropsize=513, overlap=0.):
     '''
     Input: a PIL image
     Output: a set of square images of size cropsize x cropsize that cover the original image.
@@ -180,22 +180,20 @@ def image_to_crops(image, cropsize=513, overlap=0.1):
     numy = int(math.ceil((height/cropsize - overlap) / (1 - overlap)))
     numx = int(math.ceil((width/cropsize - overlap) / (1 - overlap)))
 
-    deltay = (height - cropsize) / (numcrops - 1)
-    deltax = (width - cropsize) / (numcrops - 1)
+    deltay = (height - cropsize) / (numy - 1)
+    deltax = (width - cropsize) / (numx - 1)
 
-    offx = numpy.array([[int(i*deltax), 0] for i in range(numx)])
+    offx = np.array([[int(i*deltax), 0] for i in range(numx)])
     offx = np.expand_dims(offx, axis=1)
-    offy = numpy.array([[0, int(i*deltay)] for i in range(numy)])
-    offx = np.expand_dims(offx, axis=0)
+    offy = np.array([[0, int(i*deltay)] for i in range(numy)])
+    offy = np.expand_dims(offy, axis=0)
 
     offsets = offx + offy
+    assert len(offsets.shape) == 3, offsets.shape
 
-    crops = [image.crop( (x, y, x+cropsize, y+cropsize) ) for x,y in offsets]
+    crops = [image.crop( (x, y, x+cropsize, y+cropsize) ) for x,y in offsets.reshape( (-1, 2) )]
 
-    return {
-        'offsets': offsets,
-        'crops': crops,
-    }
+    return crops, offsets
 
 
 def glue_logits(logits, offsets):
@@ -207,20 +205,22 @@ def glue_logits(logits, offsets):
     logits = logits.transpose(0, 2, 3, 1)  # B, L, W, H => B, W, H, L
     cropsize = logits[0].shape[0]
     assert cropsize == logits[0].shape[1]
-    assert len(logits) == len(offsets)
 
     N = logits[0].shape[2]
 
     masks = blending_masks(offsets, size=cropsize)
+    masks = masks.reshape( (-1, masks.shape[-2], masks.shape[-1]))
 
-    output_width = offsets[-1][0] + cropsize
-    output_height = offsets[-1][1] + cropsize
+    output_width = offsets[-1,-1,0] + cropsize
+    output_height = offsets[-1,-1,1] + cropsize
 
-    big_logits = np.zeros( (output_height, output_width, N) )
+    big_logits = np.zeros( (output_width, output_height, N) )
+    offsets = offsets.reshape( (-1, 2) )
+    assert logits.shape[0] == offsets.shape[0]
     for logit, (x, y), mask in zip(logits, offsets, masks):
         mask = np.expand_dims(mask, 2)  # [S, S, 1]
         l = logit * mask  #  [S, S, N]
-        big_logits[y:y+cropsize,x:x+cropsize] += l
+        big_logits[x:x+cropsize,y:y+cropsize] += l.transpose(1, 0, 2)
 
     return big_logits
 
