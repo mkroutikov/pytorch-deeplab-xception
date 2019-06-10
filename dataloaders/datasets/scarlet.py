@@ -16,14 +16,15 @@ import json
 import cv2 as cv
 from dataloaders.datasets.blending_masks import blending_masks
 import math
+import lxml.etree as et
 
 ImageFile.LOAD_TRUNCATED_IMAGES = True
 
 
 class ScarletSegmentation(Dataset):
-    NUM_CLASSES = 5
+    NUM_CLASSES = 3
 
-    MASKS = 'scarlet200-volume-masks-%s.pickle'
+    MASKS = 'scarlet300-line-masks-%s.pickle'
 
     def __init__(self,
         args,
@@ -31,14 +32,14 @@ class ScarletSegmentation(Dataset):
     ):
         super().__init__()
 
-        self._dataset = ic.get_dataset('ilabs.vision', 'scarlet200')
+        self._dataset = ic.get_dataset('ilabs.vision', 'scarlet300')
         files = list(self._dataset[split])
-        images = sorted(f for f in files if f.endswith('.png') and not f.endswith('-mask.png'))
+        images = sorted(f for f in files if f.endswith('.png'))
 
         masks_filename = self.MASKS % split
         if not os.path.exists(masks_filename):
             print('Generating BORDER masks for split', split)
-            masks = [generate_volume_mask(fname) for fname in tqdm(images)]
+            masks = [generate_line_mask(fname) for fname in tqdm(images)]
             torch.save(masks, masks_filename)
         else:
             masks = torch.load(masks_filename)
@@ -138,6 +139,30 @@ def generate_volume_mask(fname):
         cv.fillConvexPoly(mask, np.array([(x0, y1), ((x0+x1)//2, (y0+y1)//2), (x1, y1)], dtype=np.int32), color=4)
 
     return mask
+
+def generate_line_mask(fname):
+    assert fname.endswith('.png')
+
+    with open(fname[:-4] + '.xml') as f:
+        xml = et.fromstring(f.read())
+
+    w, h = int(xml.attrib['width']), int(xml.attrib['height'])
+    mask = np.zeros((h,w), np.uint8)
+
+    for line in xml.findall('.//line'):
+        l, t, r, b = (float(line.attrib[x]) for x in 'ltrb')
+
+        topslack = (b-t) / 3
+        botslack = (b-t) / 8
+        x0, y0, x1, y1 = tuple(int(x) for x in (l, t+topslack, r, b-botslack))
+
+        cv.rectangle(mask, (x0, y0), (x1, y1), color=2, thickness=-1)
+
+        for box in line:
+            l, t, r, b = (int(float(box.attrib[x])) for x in 'ltrb')
+            cv.rectangle(mask, (l, y0), (r, y1), color=1, thickness=-1)
+    return mask
+
 
 def image_to_crops(image, cropsize=513, overlap=0.1):
     '''
@@ -252,7 +277,6 @@ if __name__ == "__main__":
             tmp = np.array(gt[jj]).astype(np.uint8)
             segmap = decode_segmap(tmp, dataset='scarlet200')
             img_tmp = np.transpose(img[jj], axes=[1, 2, 0])
-            print(np.min(img_tmp), np.max(img_tmp), np.mean(img_tmp), np.std(img_tmp))
             img_tmp *= (0.229, 0.224, 0.225)
             img_tmp += (0.485, 0.456, 0.406)
             img_tmp *= 255.0

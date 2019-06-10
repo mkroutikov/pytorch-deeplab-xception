@@ -23,8 +23,9 @@ def decode_segmap(label_mask, dataset, plot=False):
     elif dataset == 'cityscapes':
         n_classes = 19
         label_colours = get_cityscapes_labels()
-    elif dataset == 'scarlet200':
-        n_classes = 5
+    elif dataset == 'scarlet':
+        from dataloaders.datasets.scarlet import ScarletSegmentation
+        n_classes = ScarletSegmentation.NUM_CLASSES
         label_colours = get_scarlet_labels()
     else:
         raise NotImplementedError
