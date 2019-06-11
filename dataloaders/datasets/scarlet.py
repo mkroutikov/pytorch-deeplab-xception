@@ -52,7 +52,7 @@ class ScarletSegmentation(Dataset):
         if split == 'train':
             self._transform = transforms.Compose([
                 # tr.RandomHorizontalFlip(),
-                tr.RandomScaleCrop(base_size=self.args.base_size, crop_size=self.args.crop_size, fill=0xffffff),
+                # tr.RandomScaleCrop(base_size=self.args.base_size, crop_size=self.args.crop_size, fill=0xffffff),
                 tr.RandomGaussianBlur(),
                 tr.Normalize(mean=(0.485, 0.456, 0.406), std=(0.229, 0.224, 0.225)),
                 tr.ToTensor()
@@ -275,7 +275,7 @@ if __name__ == "__main__":
             img = sample['image'].numpy()
             gt = sample['label'].numpy()
             tmp = np.array(gt[jj]).astype(np.uint8)
-            segmap = decode_segmap(tmp, dataset='scarlet200')
+            segmap = decode_segmap(tmp, dataset='scarlet')
             img_tmp = np.transpose(img[jj], axes=[1, 2, 0])
             img_tmp *= (0.229, 0.224, 0.225)
             img_tmp += (0.485, 0.456, 0.406)

@@ -11,9 +11,6 @@ from torchvision.utils import make_grid
 def predict(model, image):
     width, height = image.size
 
-    crops, offsets = image_to_crops(image)
-
-    # make a minibatch of crops
     minibatch = [
         normalized_image_to_tensor(
             normalize_rgb_image(
@@ -22,16 +19,15 @@ def predict(model, image):
                 std=(0.229, 0.224, 0.225)
             )
         )
-        for image in crops
     ]
     minibatch = torch.stack(minibatch)
 
     with torch.no_grad():
         logits = model(minibatch).detach().cpu().numpy()
 
-    big_logits = glue_logits(logits, offsets)
-    mask = np.argmax(big_logits, axis=2)
-    confidence = np.min(np.abs(big_logits), axis=2)
+    logits = logits.squeeze(0).transpose(1, 2, 0)
+    mask = np.argmax(logits, axis=2)
+    confidence = np.min(np.abs(logits), axis=2)
 
     # color the mask
     color = np.array([
@@ -50,7 +46,7 @@ def predict(model, image):
     b = (mask == 2) * color[2]
     c = (mask == 3) * color[3]
     d = (mask == 4) * color[4]
-    mask = (r + g + b + c + d).astype(np.uint8).transpose(1, 0, 2)
+    mask = (r + g + b + c + d).astype(np.uint8)
 
     image = Image.fromarray( mask )
     mask = np.array(image, dtype=np.float32)
