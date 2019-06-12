@@ -184,7 +184,7 @@ def generate_first_box(fname):
     y0 /= h
     y1 /= h
 
-    return (x0, y0, x1-x0, y1-y0)
+    return ((x0+x1)/2, (y0+y1)/2, x1-x0, y1-y0)
 
 
 def image_to_crops(image, cropsize=513, overlap=0.1):

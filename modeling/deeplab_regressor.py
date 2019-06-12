@@ -35,7 +35,6 @@ class DeepLabRegressor(nn.Module):
 
     def forward(self, input):
         x, _ = self.backbone(input)
-        import pdb; pdb.set_trace()
         x = torch.mean(x, dim=(2, 3))
         x = self.classifier(x)
         return x

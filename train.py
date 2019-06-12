@@ -112,7 +112,7 @@ class Trainer(object):
             # Show 10 inference results each epoch
             if i % (num_img_tr // 10) == 0:
                 global_step = i + num_img_tr * epoch
-                self.writer.visualize_image(self.args.dataset, image[0], target[0], output[0], global_step)
+                self.writer.visualize_box(self.args.dataset, image[0], target[0], output[0], global_step)
 
         self.writer.add_scalar('train/total_loss_epoch', train_loss, epoch)
         print('[Epoch: %d, numImages: %5d]' % (epoch, i * self.args.batch_size + image.data.shape[0]))
