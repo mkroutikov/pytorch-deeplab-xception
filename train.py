@@ -7,6 +7,7 @@ from mypath import Path
 from dataloaders import make_data_loader
 from modeling.sync_batchnorm.replicate import patch_replication_callback
 from modeling.deeplab import *
+from modeling.deeplab_regressor import *
 from utils.loss import SegmentationLosses
 from utils.calculate_weights import calculate_weigths_labels
 from utils.lr_scheduler import LR_Scheduler
@@ -29,8 +30,7 @@ class Trainer(object):
         self.train_loader, self.val_loader, self.test_loader, self.nclass = make_data_loader(args, **kwargs)
 
         # Define network
-        model = DeepLab(num_classes=self.nclass,
-                        backbone=args.backbone,
+        model = DeepLabRegressor(backbone=args.backbone,
                         output_stride=args.out_stride,
                         sync_bn=args.sync_bn,
                         freeze_bn=args.freeze_bn)
@@ -56,7 +56,8 @@ class Trainer(object):
             weight = torch.from_numpy(weight.astype(np.float32))
         else:
             weight = None
-        self.criterion = SegmentationLosses(weight=weight, cuda=args.cuda).build_loss(mode=args.loss_type)
+        # self.criterion = SegmentationLosses(weight=weight, cuda=args.cuda).build_loss(mode=args.loss_type)
+        self.criterion = nn.SmoothL1Loss(reduction='mean')
         self.model, self.optimizer = model, optimizer
 
         # Define Evaluator

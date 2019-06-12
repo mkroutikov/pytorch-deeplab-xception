@@ -26,6 +26,8 @@ class ScarletSegmentation(Dataset):
 
     MASKS = 'scarlet300-line-masks-%s.pickle'
 
+    CACHE_BOX = 'scarlet300-box-%s.pickle'
+
     def __init__(self,
         args,
         split='train',
@@ -36,10 +38,10 @@ class ScarletSegmentation(Dataset):
         files = list(self._dataset[split])
         images = sorted(f for f in files if f.endswith('.png'))
 
-        masks_filename = self.MASKS % split
+        masks_filename = self.CACHE_BOX % split
         if not os.path.exists(masks_filename):
-            print('Generating BORDER masks for split', split)
-            masks = [generate_line_mask(fname) for fname in tqdm(images)]
+            print('Generating CACHE for split', split)
+            masks = [generate_first_box(fname) for fname in tqdm(images)]
             torch.save(masks, masks_filename)
         else:
             masks = torch.load(masks_filename)
@@ -59,7 +61,7 @@ class ScarletSegmentation(Dataset):
             ])
         elif split == 'test':
             self._transform = transforms.Compose([
-                tr.FixScaleCrop(crop_size=self.args.crop_size),
+                # tr.FixScaleCrop(crop_size=self.args.crop_size),
                 tr.Normalize(mean=(0.485, 0.456, 0.406), std=(0.229, 0.224, 0.225)),
                 tr.ToTensor()
             ])
@@ -71,7 +73,7 @@ class ScarletSegmentation(Dataset):
 
     def __getitem__(self, index):
         image = Image.open(self._images[index]).convert('RGB')
-        mask  = Image.fromarray(self._masks[index]).convert('L')
+        mask  = np.array(self._masks[index], dtype=np.float32)
 
         sample = {
             'image': image,
@@ -162,6 +164,27 @@ def generate_line_mask(fname):
             l, t, r, b = (int(float(box.attrib[x])) for x in 'ltrb')
             cv.rectangle(mask, (l, y0), (r, y1), color=1, thickness=-1)
     return mask
+
+
+def generate_first_box(fname):
+    assert fname.endswith('.png')
+
+    with open(fname[:-4] + '.xml') as f:
+        xml = et.fromstring(f.read())
+
+    w, h = int(xml.attrib['width']), int(xml.attrib['height'])
+
+    x0, y0, x1, y1 = 0., 0., 0., 0.
+    for block in xml.findall('.//block'):
+        x0, y0, x1, y1 = (float(block.attrib[x]) for x in 'ltrb')
+        break
+
+    x0 /= w
+    x1 /= w
+    y0 /= h
+    y1 /= h
+
+    return (x0, y0, x1-x0, y1-y0)
 
 
 def image_to_crops(image, cropsize=513, overlap=0.1):

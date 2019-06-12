@@ -153,10 +153,52 @@ def ResNet101(output_stride, BatchNorm, pretrained=True):
     model = ResNet(Bottleneck, [3, 4, 23, 3], output_stride, BatchNorm, pretrained=pretrained)
     return model
 
+
+from torchvision.models import resnet, utils
+
+class ResNet101Official(resnet.ResNet):
+    def __init__(self, pretrained=True, **kaw):
+        resnet.ResNet.__init__(self, resnet.Bottleneck, [3, 4, 23, 3], **kaw)
+        if pretrained:
+            state_dict = utils.load_state_dict_from_url(
+                resnet.model_urls['resnet101']
+            )
+            self.load_state_dict(state_dict)
+
+    def forward(self, x):
+        # from https://github.com/pytorch/vision/blob/master/torchvision/models/resnet.py
+        # we know the inner workings of super's forward. Replicate here leaving out the
+        # final layers
+        x = self.conv1(x)
+        x = self.bn1(x)
+        x = self.relu(x)
+        x = self.maxpool(x)
+
+        x = self.layer1(x)
+        low_level_feats = x
+        x = self.layer2(x)
+        x = self.layer3(x)
+        x = self.layer4(x)
+
+        return x, low_level_feats
+
+
 if __name__ == "__main__":
     import torch
-    model = ResNet101(BatchNorm=nn.BatchNorm2d, pretrained=True, output_stride=8)
-    input = torch.rand(1, 3, 512, 512)
+    input = torch.rand(1, 3, 256, 256)
+
+    model2 = ResNet101Official(pretrained=True, replace_stride_with_dilation=[False, False, True])
+    model2.eval()
+    output, low_level_feat = model2(input)
+    print(output.shape, low_level_feat.shape)
+    print(output.mean().item(), output.std().item(), low_level_feat.mean().item(), low_level_feat.std().item())
+    del model2
+    del output
+    del low_level_feat
+
+    model = ResNet101(BatchNorm=nn.BatchNorm2d, pretrained=True, output_stride=16)
+    model.eval()
     output, low_level_feat = model(input)
-    print(output.size())
-    print(low_level_feat.size())
+    print(output.shape, low_level_feat.shape)
+    print(output.mean().item(), output.std().item(), low_level_feat.mean().item(), low_level_feat.std().item())
+
