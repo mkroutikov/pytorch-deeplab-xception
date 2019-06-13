@@ -74,7 +74,7 @@ class ScarletSegmentation(Dataset):
     def __getitem__(self, index):
         image = Image.open(self._images[index]).convert('RGB')
         image = image.resize((image.width//2, image.height//2))
-        mask  = np.array(self._masks[index], dtype=np.float32) / 2.
+        mask  = np.array(self._masks[index], dtype=np.float32)
 
         sample = {
             'image': image,
