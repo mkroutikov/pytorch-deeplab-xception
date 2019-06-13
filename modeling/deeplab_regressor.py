@@ -47,6 +47,7 @@ class DeepLabRegressor(nn.Module):
                 m.eval()
 
     def get_1x_lr_params(self):
+        return self.backbone.parameters()
         modules = [self.backbone]
         for i in range(len(modules)):
             for m in modules[i].named_modules():
@@ -57,11 +58,12 @@ class DeepLabRegressor(nn.Module):
                             yield p
 
     def get_10x_lr_params(self):
+        return self.classifier.parameters()
         modules = [self.classifier]
         for i in range(len(modules)):
             for m in modules[i].named_modules():
                 if isinstance(m[1], nn.Conv2d) or isinstance(m[1], SynchronizedBatchNorm2d) \
-                        or isinstance(m[1], nn.BatchNorm2d):
+                        or isinstance(m[1], nn.BatchNorm2d, nn.Linear):
                     for p in m[1].parameters():
                         if p.requires_grad:
                             yield p
