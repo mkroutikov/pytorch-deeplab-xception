@@ -34,7 +34,6 @@ class TensorboardSummary(SummaryWriter):
         y0 *= height
         y1 *= height
 
-        print('Good box: %r %r %r %r' % (x0, y0, x1, y1))
         bmin = bitmap.min()
         bmax = bitmap.max()
         bitmap = (bitmap-bmin) * 255 / (bmax-bmin)
@@ -53,7 +52,6 @@ class TensorboardSummary(SummaryWriter):
         y0 *= height
         y1 *= height
 
-        print('Predicted box: %r %r %r %r' % (x0, y0, x1, y1))
         cv.rectangle(c, (int(x0), int(y0)), (int(x1), int(y1)), color=(0, 0, 255))
 #        cv.imshow('XXX', c)
 
